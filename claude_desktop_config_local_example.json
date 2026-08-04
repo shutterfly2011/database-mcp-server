@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "mcp-db-server-local": {
+      "command": "C:/Users/kundu/Desktop/Projects/Proj/MCP/mcp-db-server/.env1/Scripts/python.exe",
+      "args": [
+        "C:\\Users\\kundu\\Desktop\\Projects\\Proj\\MCP\\mcp-db-server\\mcp_server.py",
+        "--database-url",
+        "sqlite+aiosqlite:///C:/Users/kundu/Desktop/Projects/Proj/MCP/mcp-db-server/data/claude_test.db"
+      ],
+      "env": {}
+    }
+  }
+}
