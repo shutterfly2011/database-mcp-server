@@ -10,6 +10,7 @@ uvicorn[standard]>=0.24.0
 aiosqlite>=0.20.0
 asyncpg>=0.29.0
 aiomysql>=0.2.0
+pymysql>=1.1.0   # aiomysql's runtime dependency; declared explicitly rather than left implicit
 motor>=3.5.1
 dnspython>=2.6.1
 

@@ -23,11 +23,6 @@ except ImportError:
     asyncpg = None
 
 try:
-    import pymysql
-except ImportError:
-    pymysql = None
-
-try:
     import aiosqlite
 except ImportError:
     aiosqlite = None
@@ -553,19 +548,18 @@ class DatabaseManager:
 
         if self.database_type == "mongodb":
             return await self._execute_safe_mongo_query(query, limit=limit)
-        
-        # Add/modify LIMIT clause
-        query_upper = query.upper()
-        if 'LIMIT' in query_upper:
-            # Replace existing LIMIT with our limit
-            query = re.sub(r'\bLIMIT\s+\d+', f'LIMIT {limit}', query, flags=re.IGNORECASE)
-        else:
-            # Add LIMIT clause
-            query = f"{query.rstrip(';')} LIMIT {limit}"
-        
+
+        # Wrap in an outer subquery with a bound-parameter LIMIT rather than
+        # regex-detecting/rewriting any LIMIT clause already in the query text.
+        # This caps the result to `limit` rows regardless of what the inner
+        # query does (an inner LIMIT just caps earlier), and as a side effect
+        # a subquery can only hold a single SELECT statement, which structurally
+        # rules out stacked-statement injection through this path.
+        wrapped_query = f"SELECT * FROM ({query.rstrip(';')}) AS _safe_query_subquery LIMIT :__row_limit"
+
         try:
             async with self.engine.begin() as conn:
-                result = await conn.execute(text(query))
+                result = await conn.execute(text(wrapped_query), {"__row_limit": limit})
                 
                 # Convert rows to dictionaries
                 rows = []

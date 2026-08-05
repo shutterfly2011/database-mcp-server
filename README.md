@@ -82,7 +82,7 @@ full 13-tool surface, use the stdio MCP server (`mcp_server.py`, e.g. via Claude
    ```bash
    export DATABASE_URL="postgresql+asyncpg://user:password@localhost:5432/dbname"
    # or for MySQL:
-   # export DATABASE_URL="mysql+pymysql://user:password@localhost:3306/dbname"
+   # export DATABASE_URL="mysql+aiomysql://user:password@localhost:3306/dbname"
    ```
 
 4. **Run the server:**
@@ -160,18 +160,6 @@ curl -X POST "http://localhost:8000/mcp/query" \
 ### Database Connection Examples
 
 ```bash
-# PostgreSQL
-DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/mydb
-
-# MySQL
-DATABASE_URL=mysql+pymysql://user:pass@localhost:3306/mydb
-
-# PostgreSQL with SSL
-DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/mydb?sslmode=require
-
-### Database Connection Examples
-
-```bash
 # PostgreSQL (local or cloud)
 DATABASE_URL=postgresql+asyncpg://user:password@host:5432/dbname
 
@@ -214,7 +202,6 @@ docker run -d \
 - If you get `connect() got an unexpected keyword argument 'ssl-mode'`, ignore it: SSL is still enabled.
 - For network errors, check firewall and DB credentials.
 - For MySQL, always use `mysql+aiomysql` in the URL for async support.
-```
 
 ## Security Features
 
@@ -244,7 +231,8 @@ mcp-db-server/
 │   └── docker-publish.yml   # CI/CD pipeline
 ├── docker-compose.yml       # Docker Compose configuration
 ├── Dockerfile               # Container definition
-├── init_db.sql             # Sample database schema and data
+├── init-scripts/
+│   └── init_db.sql          # Sample e-commerce seed data (postgres/mysql compose services)
 ├── requirements.txt         # Python dependencies
 └── README.md               # This file
 ```

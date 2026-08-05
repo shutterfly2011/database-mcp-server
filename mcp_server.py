@@ -14,15 +14,22 @@ import argparse
 from pathlib import Path
 from typing import Dict, List, Any
 
-# Add the app directory to the path
-# Use absolute path resolution that works both locally and in Docker
+# Add the app/ directory to sys.path so `from db import DatabaseManager` etc. work
+# whether this file is run locally or inside the container. Resolved relative to
+# this file (and cwd as a second guess) rather than a hardcoded container path
+# like /app/app, which would silently break if the image's WORKDIR or COPY
+# layout ever changes.
 _script_dir = Path(__file__).resolve().parent
-_app_dir = _script_dir / 'app'
-if _app_dir.exists():
+_candidate_app_dirs = [_script_dir / 'app', Path.cwd() / 'app']
+_app_dir = next((p for p in _candidate_app_dirs if p.is_dir()), None)
+if _app_dir:
     sys.path.insert(0, str(_app_dir))
 else:
-    # Fallback for Docker container where app might be at /app/app
-    sys.path.insert(0, '/app/app')
+    print(
+        f"WARNING: could not locate the 'app' package near {_script_dir} or cwd; "
+        "relying on PYTHONPATH.",
+        file=sys.stderr,
+    )
 
 from mcp.server import fastmcp
 from dotenv import load_dotenv
