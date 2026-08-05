@@ -3,14 +3,19 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 
-An MCP (Model Context Protocol) server that exposes relational databases (PostgreSQL/MySQL) to AI agents with natural language query support. Transform natural language questions into SQL queries and get structured results.
+An MCP (Model Context Protocol) server that exposes databases (PostgreSQL/MySQL/SQLite/MongoDB) to AI agents with natural language query support. Transform natural language questions into SQL queries and get structured results.
 
 ## Features
 
-- **Multi-Database Support**: Works with PostgreSQL and MySQL
-- **Natural Language to SQL**: Convert plain English queries to SQL using HuggingFace transformers
+- **Multi-Database Support**: Works with PostgreSQL, MySQL, SQLite, and MongoDB
+- **Natural Language to SQL**: Convert plain English queries to SQL using a configurable LLM
+  provider - Anthropic, OpenAI, OpenRouter, or local Ollama models - with a rule-based fallback
+  when no provider is configured
+- **Rich Schema Metadata**: Primary/foreign keys, indexes, row counts, and sample rows are
+  auto-discovered and fed into the LLM prompt for more accurate SQL generation
 - **RESTful API**: Clean FastAPI-based endpoints for database operations
-- **Safety First**: Read-only operations with query validation and result limits
+- **Safety First**: Read-only operations with query validation and result limits; destructive
+  write tools are disabled by default and require explicit opt-in (see Safety section)
 - **Docker Ready**: Complete containerization with Docker Compose
 - **Production Ready**: Health checks, logging, and error handling
 - **AI Agent Friendly**: Designed specifically for AI agent integration
@@ -89,6 +94,23 @@ The project includes a sample database with realistic e-commerce data:
 - **orders**: Order records (17 sample orders)
 - **order_items**: Individual items within orders
 - **order_summary**: View combining order and customer data
+
+## LLM Provider Configuration
+
+SQL generation is delegated to whichever provider you configure via environment variables
+(see `.env.example` for full examples). All four are interchangeable - only `LLM_PROVIDER`
+and `LLM_MODEL` change:
+
+| Provider       | `LLM_PROVIDER` | API key                          | Notes                                  |
+| -------------- | --------------- | --------------------------------- | --------------------------------------- |
+| Anthropic      | `anthropic`     | `LLM_API_KEY` or `ANTHROPIC_API_KEY` |                                       |
+| OpenAI         | `openai`        | `LLM_API_KEY` or `OPENAI_API_KEY`    |                                       |
+| OpenRouter     | `openrouter`    | `LLM_API_KEY` or `OPENROUTER_API_KEY`| OpenAI-compatible; routes to many models |
+| Ollama (local) | `ollama`        | none                               | `LLM_BASE_URL` defaults to `http://localhost:11434` |
+
+If `LLM_PROVIDER` is unset, the server falls back to simple rule-based SQL generation (no
+network calls). If a configured LLM call fails at runtime, it also falls back to the rule-based
+generator rather than erroring out.
 
 ## Natural Language Query Examples
 
@@ -192,11 +214,15 @@ docker run -d \
 
 ## Security Features
 
-- **Read-Only Operations**: Only SELECT queries are allowed
+- **Read-Only Operations**: Only SELECT queries are allowed for `execute_sql`/`query_database`
 - **Query Validation**: Automatic detection and blocking of dangerous SQL operations
 - **Result Limiting**: Maximum 50 rows per query (configurable)
 - **Input Sanitization**: Protection against SQL injection
 - **Safe Defaults**: Secure configuration out of the box
+- **Write Tools Disabled by Default**: `execute_unsafe_sql`, `create_table`, `insert_data`,
+  `update_data`, and `delete_data` all refuse to run unless `ALLOW_WRITE_OPERATIONS=true` is set.
+  `delete_data`/`update_data` additionally require a `where_condition` - or an explicit
+  `confirm_full_table=True` - before they'll touch every row in a table.
 
 ## Architecture
 
@@ -206,7 +232,10 @@ mcp-db-server/
 │   ├── __init__.py          # Package initialization
 │   ├── server.py            # FastAPI application and endpoints
 │   ├── db.py                # Database connection and operations
-│   └── nl_to_sql.py         # Natural language to SQL conversion
+│   ├── nl_to_sql.py         # Natural language to SQL conversion (LLM-backed)
+│   ├── llm_providers.py     # Anthropic/OpenAI/OpenRouter/Ollama provider adapters
+│   └── metadata.py          # Rich schema metadata (PKs, FKs, indexes, samples)
+├── mcp_server.py            # FastMCP stdio server (for Claude Desktop / MCP clients)
 ├── .github/workflows/
 │   └── docker-publish.yml   # CI/CD pipeline
 ├── docker-compose.yml       # Docker Compose configuration
@@ -424,9 +453,12 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 ## Acknowledgments
 
 - [FastAPI](https://fastapi.tiangolo.com/) for the excellent web framework
-- [HuggingFace Transformers](https://huggingface.co/transformers/) for NL to SQL capabilities
 - [SQLAlchemy](https://sqlalchemy.org/) for database abstraction
 - The Model Context Protocol (MCP) community
+- This is a fork of [Souhar-dya/mcp-db-server](https://github.com/Souhar-dya/mcp-db-server)
+  (Apache-2.0), replacing its HuggingFace-based NL-to-SQL converter with a multi-provider LLM
+  backend (Anthropic/OpenAI/OpenRouter/Ollama), adding rich schema metadata, and hardening the
+  write tools with an opt-in safety gate
 
 ## Support
 

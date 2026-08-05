@@ -16,6 +16,7 @@ from pydantic import BaseModel
 try:
     from .db import DatabaseManager, get_db_manager
     from .nl_to_sql import NLToSQLConverter
+    from .metadata import get_database_metadata, format_metadata_for_prompt
 except ImportError:
     # Fallback for direct execution
     import sys
@@ -23,6 +24,7 @@ except ImportError:
     sys.path.insert(0, os.path.dirname(__file__))
     from db import DatabaseManager, get_db_manager
     from nl_to_sql import NLToSQLConverter
+    from metadata import get_database_metadata, format_metadata_for_prompt
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -148,16 +150,16 @@ async def execute_nl_query(
         raise HTTPException(status_code=503, detail="NL to SQL converter not available")
     
     try:
-        # Get table schemas for context
-        tables = await db_manager.list_tables()
-        table_schemas = {}
-        for table in tables:
-            schema = await db_manager.describe_table(table["table_name"])
-            table_schemas[table["table_name"]] = schema
-        
+        # Get rich schema metadata (PKs, FKs, indexes, samples) for LLM context
+        database_metadata = await get_database_metadata(db_manager)
+        schema_context = format_metadata_for_prompt(database_metadata)
+        table_schemas = {t["table_name"]: t["columns"] for t in database_metadata["tables"]}
+
         # Convert natural language to SQL
-        sql_query = nl_converter.convert_to_sql(request.nl_query, table_schemas)
-        
+        sql_query = await nl_converter.convert_to_sql(
+            request.nl_query, table_schemas, schema_context=schema_context, dialect=db_manager.database_type
+        )
+
         # Execute the query with safety checks
         results = await db_manager.execute_safe_query(sql_query, limit=request.limit)
         

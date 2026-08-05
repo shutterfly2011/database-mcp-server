@@ -589,6 +589,10 @@ class DatabaseManager:
     
     async def execute_unsafe_query(self, query: str) -> List[Dict[str, Any]]:
         """Execute any SQL query without safety restrictions (allows CREATE, DELETE, INSERT, etc.)"""
+        if os.getenv("ALLOW_WRITE_OPERATIONS", "false").strip().lower() not in {"1", "true", "yes", "on"}:
+            raise PermissionError(
+                "Write operations are disabled. Set ALLOW_WRITE_OPERATIONS=true in the environment to enable them."
+            )
         try:
             if self.database_type == "mongodb":
                 return await self._execute_unsafe_mongo_query(query)

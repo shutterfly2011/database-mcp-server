@@ -7,7 +7,12 @@
         "--database-url",
         "sqlite+aiosqlite:///C:/Users/kundu/Desktop/Projects/Proj/MCP/mcp-db-server/data/claude_test.db"
       ],
-      "env": {}
+      "env": {
+        "LLM_PROVIDER": "anthropic",
+        "LLM_MODEL": "claude-sonnet-5",
+        "ANTHROPIC_API_KEY": "sk-ant-...",
+        "ALLOW_WRITE_OPERATIONS": "false"
+      }
     }
   }
 }

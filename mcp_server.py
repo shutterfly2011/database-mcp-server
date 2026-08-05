@@ -30,6 +30,7 @@ from dotenv import load_dotenv
 # Import our database functionality
 from db import DatabaseManager
 from nl_to_sql import NLToSQLConverter
+from metadata import get_database_metadata as fetch_database_metadata, format_metadata_for_prompt
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -45,6 +46,16 @@ mcp = fastmcp.FastMCP("Database Server")
 db_manager: DatabaseManager = None
 nl_converter: NLToSQLConverter = None
 
+
+def _write_operations_allowed() -> bool:
+    return os.getenv("ALLOW_WRITE_OPERATIONS", "false").strip().lower() in {"1", "true", "yes", "on"}
+
+
+_WRITE_DISABLED_MSG = (
+    "ERROR: Write operations are disabled. Set ALLOW_WRITE_OPERATIONS=true in the environment "
+    "to enable execute_unsafe_sql, create_table, insert_data, update_data, and delete_data."
+)
+
 @mcp.tool()
 async def query_database(query: str) -> str:
     """
@@ -57,16 +68,16 @@ async def query_database(query: str) -> str:
         The query results formatted as text
     """
     try:
-        # Get table schemas for context
-        tables = await db_manager.list_tables()
-        table_schemas = {}
-        for table in tables:
-            columns = await db_manager.describe_table(table['table_name'])
-            table_schemas[table['table_name']] = columns
-        
+        # Get rich schema metadata (PKs, FKs, indexes, samples) for LLM context
+        database_metadata = await fetch_database_metadata(db_manager)
+        schema_context = format_metadata_for_prompt(database_metadata)
+        table_schemas = {t['table_name']: t['columns'] for t in database_metadata['tables']}
+
         # Convert natural language to SQL
-        sql_query = nl_converter.convert_to_sql(query, table_schemas)
-        
+        sql_query = await nl_converter.convert_to_sql(
+            query, table_schemas, schema_context=schema_context, dialect=db_manager.database_type
+        )
+
         # Execute the query
         results = await db_manager.execute_safe_query(sql_query)
         
@@ -141,6 +152,25 @@ async def describe_table(table_name: str) -> str:
         
     except Exception as e:
         return f"Error describing table: {str(e)}"
+
+@mcp.tool()
+async def get_database_metadata(table_name: str = "") -> str:
+    """
+    Get rich schema metadata: primary/foreign keys, indexes, row counts, and sample rows.
+
+    Args:
+        table_name: Optional table/collection name. If omitted, returns metadata for every table.
+
+    Returns:
+        JSON-formatted metadata - this is the same context used internally to build
+        better SQL for query_database, exposed here for direct inspection.
+    """
+    try:
+        import json
+        data = await fetch_database_metadata(db_manager, table_name or None)
+        return json.dumps(data, indent=2, default=str)
+    except Exception as e:
+        return f"ERROR: Error getting database metadata: {str(e)}"
 
 @mcp.tool()
 async def execute_sql(sql_query: str) -> str:
@@ -351,6 +381,8 @@ async def execute_unsafe_sql(sql_query: str) -> str:
     Returns:
         The query results or success message for modification operations
     """
+    if not _write_operations_allowed():
+        return _WRITE_DISABLED_MSG
     try:
         results = await db_manager.execute_unsafe_query(sql_query)
         
@@ -389,6 +421,8 @@ async def create_table(table_name: str, columns_definition: str) -> str:
     Returns:
         Success message or error details
     """
+    if not _write_operations_allowed():
+        return _WRITE_DISABLED_MSG
     try:
         create_query = f"CREATE TABLE {table_name} ({columns_definition})"
         results = await db_manager.execute_unsafe_query(create_query)
@@ -410,6 +444,8 @@ async def insert_data(table_name: str, columns: str, values: str) -> str:
     Returns:
         Success message with number of rows affected
     """
+    if not _write_operations_allowed():
+        return _WRITE_DISABLED_MSG
     try:
         insert_query = f"INSERT INTO {table_name} ({columns}) VALUES ({values})"
         results = await db_manager.execute_unsafe_query(insert_query)
@@ -420,54 +456,74 @@ async def insert_data(table_name: str, columns: str, values: str) -> str:
         return f"ERROR: Error inserting data: {str(e)}"
 
 @mcp.tool()
-async def delete_data(table_name: str, where_condition: str = "") -> str:
+async def delete_data(table_name: str, where_condition: str = "", confirm_full_table: bool = False) -> str:
     """
     Delete data from a table.
     WARNING: This will permanently delete data!
-    
+
     Args:
         table_name: Name of the table to delete from
-        where_condition: WHERE clause condition (e.g., "id = 1" or "age > 65"). If empty, ALL rows will be deleted!
-        
+        where_condition: WHERE clause condition (e.g., "id = 1" or "age > 65")
+        confirm_full_table: Must be True to delete ALL rows when where_condition is empty.
+            This is a deliberate second confirmation - omitting where_condition without
+            setting this to True will be rejected rather than silently wiping the table.
+
     Returns:
         Success message with number of rows deleted
     """
+    if not _write_operations_allowed():
+        return _WRITE_DISABLED_MSG
     try:
         if where_condition.strip():
             delete_query = f"DELETE FROM {table_name} WHERE {where_condition}"
-        else:
+        elif confirm_full_table:
             delete_query = f"DELETE FROM {table_name}"
-            
+        else:
+            return (
+                f"ERROR: No where_condition given, which would delete ALL rows in '{table_name}'. "
+                "Pass confirm_full_table=True if that is really what you want."
+            )
+
         results = await db_manager.execute_unsafe_query(delete_query)
         affected_rows = results[0].get('affected_rows', 0) if results else 0
         return f"Deleted {affected_rows} row(s) from '{table_name}'"
-        
+
     except Exception as e:
         return f"ERROR: Error deleting data: {str(e)}"
 
 @mcp.tool()
-async def update_data(table_name: str, set_clause: str, where_condition: str = "") -> str:
+async def update_data(table_name: str, set_clause: str, where_condition: str = "", confirm_full_table: bool = False) -> str:
     """
     Update data in a table.
-    
+
     Args:
         table_name: Name of the table to update
         set_clause: SET clause (e.g., "name = 'New Name', age = 25")
-        where_condition: WHERE clause condition (e.g., "id = 1"). If empty, ALL rows will be updated!
-        
+        where_condition: WHERE clause condition (e.g., "id = 1")
+        confirm_full_table: Must be True to update ALL rows when where_condition is empty.
+            This is a deliberate second confirmation - omitting where_condition without
+            setting this to True will be rejected rather than silently updating every row.
+
     Returns:
         Success message with number of rows updated
     """
+    if not _write_operations_allowed():
+        return _WRITE_DISABLED_MSG
     try:
         if where_condition.strip():
             update_query = f"UPDATE {table_name} SET {set_clause} WHERE {where_condition}"
-        else:
+        elif confirm_full_table:
             update_query = f"UPDATE {table_name} SET {set_clause}"
-            
+        else:
+            return (
+                f"ERROR: No where_condition given, which would update ALL rows in '{table_name}'. "
+                "Pass confirm_full_table=True if that is really what you want."
+            )
+
         results = await db_manager.execute_unsafe_query(update_query)
         affected_rows = results[0].get('affected_rows', 0) if results else 0
         return f"Updated {affected_rows} row(s) in '{table_name}'"
-        
+
     except Exception as e:
         return f"ERROR: Error updating data: {str(e)}"
 

@@ -304,9 +304,10 @@ class MCPTestSuite:
             return False
     
     async def test_async_fix(self):
-        """Test that the async bug is fixed (no await on synchronous method)"""
+        """Test that convert_to_sql is correctly awaited (it's async again now that
+        NLToSQLConverter can call out to an LLM API, which is genuinely async I/O)"""
         print("\nTesting Async Bug Fix...")
-        
+
         try:
             # Get table schemas for context
             tables = await self.db_manager.list_tables()
@@ -314,10 +315,11 @@ class MCPTestSuite:
             for table in tables:
                 columns = await self.db_manager.describe_table(table['table_name'])
                 table_schemas[table['table_name']] = columns
-            
-            # Test the FIXED line (no await on non-async method)
+
+            # convert_to_sql is async: rule-based fallback is sync work wrapped in a
+            # coroutine, but the LLM-backed path performs real network I/O.
             query = "show me all customers"
-            sql_query = self.nl_converter.convert_to_sql(query, table_schemas)  # FIXED: No await
+            sql_query = await self.nl_converter.convert_to_sql(query, table_schemas)
             
             # Execute the generated query
             results = await self.db_manager.execute_safe_query(sql_query, limit=3)
@@ -427,7 +429,7 @@ class MCPTestSuite:
         
         for nl_query, description in test_queries:
             try:
-                sql_query = self.nl_converter.convert_to_sql(nl_query, table_schemas)
+                sql_query = await self.nl_converter.convert_to_sql(nl_query, table_schemas)
                 results = await self.db_manager.execute_safe_query(sql_query, limit=10)
                 
                 print(f"    '{description}': {len(results)} rows returned")

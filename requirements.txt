@@ -20,9 +20,11 @@ greenlet>=3.0.0
 # Configuration management
 python-dotenv>=1.0.0
 
-# Natural language processing (optional, graceful fallback)
-# transformers>=4.30.0
-# numpy<2.0.0
+# LLM providers for natural-language-to-SQL generation (all optional - only the
+# provider selected via LLM_PROVIDER needs to be installed/importable)
+anthropic>=0.39.0
+openai>=1.54.0
+httpx>=0.27.0
 
 # Data validation
 pydantic>=2.5.0
