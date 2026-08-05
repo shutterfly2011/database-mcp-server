@@ -10,6 +10,8 @@ services:
       - DATABASE_URL=sqlite+aiosqlite:////data/default.db
       - PYTHONUNBUFFERED=1
     ports:
+      # Only relevant if you override `command` to run the HTTP server
+      # (uvicorn app.server:app) instead of the default stdio mcp_server.py.
       - "8000:8000"
     volumes:
       # Mount data directory for persistent SQLite databases
@@ -17,7 +19,10 @@ services:
       # Optional: Mount config files
       - ./config:/app/config:ro
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      # Same check as the Dockerfile's HEALTHCHECK: verifies the DB connection
+      # directly rather than hitting an HTTP endpoint, since the default CMD
+      # runs the stdio MCP server (mcp_server.py), which has no HTTP listener.
+      test: ["CMD", "python", "-c", "import asyncio; import sys; sys.path.insert(0, '/app/app'); from db import DatabaseManager; dm = DatabaseManager(); print('OK' if asyncio.run(dm.test_connection()) else 'FAIL')"]
       interval: 30s
       timeout: 10s
       retries: 3

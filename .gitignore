@@ -199,8 +199,9 @@ mcp_*.pid
 claude_desktop_config.json
 claude_desktop_dynamic.json
 
-# Runtime data
-data/
+# Runtime data (data/* rather than data/ so the !data/.gitkeep negation below
+# actually works - git can't re-include a file inside a fully-excluded directory)
+data/*
 !data/.gitkeep
 
 # Logs

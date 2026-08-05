@@ -22,9 +22,13 @@ An MCP (Model Context Protocol) server that exposes databases (PostgreSQL/MySQL/
 
 ## API Endpoints
 
+The HTTP API is a deliberate **read-only subset** of the full tool set. It does not expose write
+operations, dynamic database switching, rich metadata inspection, or connection examples - for the
+full 13-tool surface, use the stdio MCP server (`mcp_server.py`, e.g. via Claude Desktop) instead.
+
 | Endpoint                          | Method | Description                                  |
 | --------------------------------- | ------ | -------------------------------------------- |
-| `/health`                         | GET    | Health check and service status              |
+| `/health`                         | GET    | Health check - verifies the DB connection    |
 | `/mcp/list_tables`                | GET    | List all available tables with column counts |
 | `/mcp/describe/{table_name}`      | GET    | Get detailed schema for a specific table     |
 | `/mcp/query`                      | POST   | Execute natural language queries             |

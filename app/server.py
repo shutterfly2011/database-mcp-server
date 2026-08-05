@@ -2,6 +2,12 @@
 FastAPI MCP Database Server
 
 An MCP server that exposes relational databases to AI agents with natural language query support.
+
+This HTTP API is a deliberate READ-ONLY SUBSET of the full tool set: list_tables, describe_table,
+query_database (NL->SQL), and table sampling. It does not expose write operations, dynamic
+database switching, rich metadata inspection, or connection examples - those are only available
+through the stdio MCP server (mcp_server.py, e.g. via Claude Desktop). Use the stdio server if you
+need the full tool surface.
 """
 
 import os
@@ -11,6 +17,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 try:
@@ -94,13 +101,21 @@ app.add_middleware(
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
-    return {
-        "status": "healthy",
+    """Health check endpoint - actually verifies the database connection"""
+    try:
+        db_manager = await get_db_manager()
+        connected = await db_manager.test_connection()
+    except Exception as e:
+        logger.error(f"Health check: database connection failed: {e}")
+        connected = False
+
+    body = {
+        "status": "healthy" if connected else "unhealthy",
         "service": "mcp-db-server",
         "version": "1.1.0",
-        "database_connected": True  # Will be updated with actual DB check
+        "database_connected": connected,
     }
+    return JSONResponse(content=body, status_code=200 if connected else 503)
 
 @app.get("/mcp/list_tables", response_model=List[TableInfo])
 async def list_tables(db_manager: DatabaseManager = Depends(get_db_manager)):
