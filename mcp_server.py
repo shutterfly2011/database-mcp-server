@@ -39,9 +39,19 @@ from db import DatabaseManager
 from nl_to_sql import NLToSQLConverter
 from metadata import get_database_metadata as fetch_database_metadata, format_metadata_for_prompt
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
+# Set up logging to stderr for better host process visibility
+logging.basicConfig(
+    level=logging.INFO,
+    stream=sys.stderr,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
 logger = logging.getLogger("mcp-database-server")
+
+# Ensure any handlers send output to stderr if basicConfig was bypassed
+if not logging.getLogger().handlers:
+    stderr_handler = logging.StreamHandler(sys.stderr)
+    stderr_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+    logging.getLogger().addHandler(stderr_handler)
 
 # Load environment variables
 load_dotenv()
@@ -624,7 +634,17 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     async def run_server():
-        await initialize_database(args.database_url, args.config_file)
-        await mcp.run_stdio_async()
+        try:
+            await initialize_database(args.database_url, args.config_file)
+            await mcp.run_stdio_async()
+        except Exception:
+            logger.exception("MCP server runtime failure")
+            raise
     
-    asyncio.run(run_server())
+    try:
+        asyncio.run(run_server())
+    except Exception as e:
+        print(f"Server startup failed: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc(file=sys.stderr)
+        sys.exit(1)

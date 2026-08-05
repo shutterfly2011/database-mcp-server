@@ -311,6 +311,11 @@ Requires `pip install -r requirements.txt` into that virtualenv first (see
 at `.venv\Scripts\python.exe` instead. If your VS Code version doesn't resolve
 `${workspaceFolder}` inside `mcp.json`, replace it with an absolute path.
 
+> **Note:** For stdio-based MCP servers such as `mcp_server.py`, the host process
+> often relies on `stderr` to capture startup and runtime errors. The server is
+> configured to write logs and exceptions to `stderr` so tools like OpenWorker can
+> surface the real failure instead of a generic task-group error.
+
 ## Docker Smoke Test
 
 Use the dedicated Docker smoke test in `tests/docker`:
