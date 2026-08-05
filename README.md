@@ -302,6 +302,40 @@ After publishing, users can discover/install it from MCP-compatible clients, inc
 }
 ```
 
+### 4b) Local VS Code config example (Python, no Docker)
+
+Running `mcp_server.py` directly with a local Python interpreter avoids the Docker
+daemon entirely and uses noticeably less memory/CPU than a container - useful on
+machines without Docker Desktop, or when you'd rather not run one just for this.
+See `vscode_mcp_config_local_example.json`:
+
+```json
+{
+  "servers": {
+    "mcp-db-server-local": {
+      "type": "stdio",
+      "command": "${workspaceFolder}/.venv/bin/python",
+      "args": [
+        "${workspaceFolder}/mcp_server.py",
+        "--database-url",
+        "sqlite+aiosqlite:///${workspaceFolder}/data/local.db"
+      ],
+      "env": {
+        "LLM_PROVIDER": "anthropic",
+        "LLM_MODEL": "claude-sonnet-5",
+        "ANTHROPIC_API_KEY": "sk-ant-...",
+        "ALLOW_WRITE_OPERATIONS": "false"
+      }
+    }
+  }
+}
+```
+
+Requires `pip install -r requirements.txt` into that virtualenv first (see
+[Option 2: Local Development](#option-2-local-development) above). On Windows, `command` should point
+at `.venv\Scripts\python.exe` instead. If your VS Code version doesn't resolve
+`${workspaceFolder}` inside `mcp.json`, replace it with an absolute path.
+
 ## Docker Smoke Test
 
 Use the dedicated Docker smoke test in `tests/docker`:

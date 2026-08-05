@@ -1,0 +1,19 @@
+{
+  "servers": {
+    "mcp-db-server-local": {
+      "type": "stdio",
+      "command": "${workspaceFolder}/.venv/bin/python",
+      "args": [
+        "${workspaceFolder}/mcp_server.py",
+        "--database-url",
+        "sqlite+aiosqlite:///${workspaceFolder}/data/local.db"
+      ],
+      "env": {
+        "LLM_PROVIDER": "anthropic",
+        "LLM_MODEL": "claude-sonnet-5",
+        "ANTHROPIC_API_KEY": "sk-ant-...",
+        "ALLOW_WRITE_OPERATIONS": "false"
+      }
+    }
+  }
+}
