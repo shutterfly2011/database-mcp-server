@@ -11,7 +11,7 @@
         "-e", "LLM_MODEL=claude-sonnet-5",
         "-e", "ANTHROPIC_API_KEY",
         "-e", "ALLOW_WRITE_OPERATIONS=false",
-        "souhardyak/mcp-db-server"
+        "mcp-database-server:latest"
       ],
       "env": {
         "ANTHROPIC_API_KEY": "sk-ant-..."

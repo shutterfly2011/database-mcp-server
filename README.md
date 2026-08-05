@@ -41,8 +41,8 @@ full 13-tool surface, use the stdio MCP server (`mcp_server.py`, e.g. via Claude
 1. **Clone and start the services:**
 
    ```bash
-   git clone https://github.com/Souhar-dya/mcp-db-server.git
-   cd mcp-db-server
+   git clone https://github.com/shutterfly2011/database-mcp-server.git
+   cd database-mcp-server
    docker-compose up --build
    ```
 
@@ -190,11 +190,15 @@ DATABASE_URL=mysql+aiomysql://avnadmin:yourpassword@mysql-xxxxxx-username-xxxx.a
 
 #### Docker Usage with Cloud DB
 
+This image isn't published anywhere; build it locally first, then run it:
+
 ```bash
+docker build -t mcp-database-server:latest .
+
 docker run -d \
   -p 8000:8000 \
   -e DATABASE_URL="<your_cloud_database_url>" \
-  souhardyak/mcp-db-server:latest
+  mcp-database-server:latest
 ```
 
 #### Troubleshooting
@@ -227,8 +231,6 @@ mcp-db-server/
 │   ├── llm_providers.py     # Anthropic/OpenAI/OpenRouter/Ollama provider adapters
 │   └── metadata.py          # Rich schema metadata (PKs, FKs, indexes, samples)
 ├── mcp_server.py            # FastMCP stdio server (for Claude Desktop / MCP clients)
-├── .github/workflows/
-│   └── docker-publish.yml   # CI/CD pipeline
 ├── docker-compose.yml       # Docker Compose configuration
 ├── Dockerfile               # Container definition
 ├── init-scripts/
@@ -246,42 +248,15 @@ This server is designed to work seamlessly with MCP-compatible AI agents:
 3. **Error Handling**: Consistent error messages and status codes
 4. **Documentation**: OpenAPI/Swagger documentation available at `/docs`
 
-## Publish To VS Code MCP Store (Registry)
+## VS Code Integration
 
-VS Code MCP gallery uses MCP Registry metadata. This repository now includes
-`server.json` for registry publication.
+This server isn't published to the MCP Registry or a public container registry, so VS
+Code's `mcp.json` needs to point at either a locally-built Docker image or a local
+Python interpreter directly - both are shown below.
 
-### 1) Build and publish Docker image
+### Docker-based config example
 
-```bash
-docker build -t souhardyak/mcp-db-server:1.3.1 .
-docker push souhardyak/mcp-db-server:1.3.1
-```
-
-### 2) Validate server metadata
-
-`server.json` is configured for an OCI package and stdio transport:
-
-- `name`: `io.github.Souhar-dya/mcp-db-server`
-- `registryType`: `oci`
-- `identifier`: `docker.io/souhardyak/mcp-db-server:1.3.1`
-
-The Dockerfile includes registry ownership annotation:
-
-- `io.modelcontextprotocol.server.name=io.github.Souhar-dya/mcp-db-server`
-
-### 3) Publish to MCP Registry
-
-Install publisher and publish metadata:
-
-```bash
-mcp-publisher login github
-mcp-publisher publish
-```
-
-After publishing, users can discover/install it from MCP-compatible clients, including VS Code MCP experiences that read from the registry.
-
-### 4) Local VS Code config example
+Build the image first (`docker build -t mcp-database-server:latest .`), then:
 
 ```json
 {
@@ -295,14 +270,14 @@ After publishing, users can discover/install it from MCP-compatible clients, inc
         "-i",
         "-e",
         "DATABASE_URL=sqlite+aiosqlite:////data/default.db",
-        "souhardyak/mcp-db-server:1.3.1"
+        "mcp-database-server:latest"
       ]
     }
   }
 }
 ```
 
-### 4b) Local VS Code config example (Python, no Docker)
+### Python-based config example (no Docker)
 
 Running `mcp_server.py` directly with a local Python interpreter avoids the Docker
 daemon entirely and uses noticeably less memory/CPU than a container - useful on
@@ -348,20 +323,23 @@ This verifies Docker daemon access, image build, container startup, and health s
 
 ## Deployment
 
-### Docker Hub
+### Local Docker
+
+This image isn't published to any registry; build and run it locally:
 
 ```bash
-# Pull the latest image
-docker pull souhardyak/mcp-db-server:latest
+docker build -t mcp-database-server:latest .
 
-# Run with your database
 docker run -d \
   -p 8000:8000 \
   -e DATABASE_URL="your_database_url_here" \
-  souhardyak/mcp-db-server:latest
+  mcp-database-server:latest
 ```
 
 ### Kubernetes
+
+Push `mcp-database-server:latest` to a registry your cluster can pull from first
+(Docker Hub, GHCR, ECR, etc.), then reference that image below:
 
 ```yaml
 apiVersion: apps/v1
@@ -380,7 +358,7 @@ spec:
     spec:
       containers:
         - name: mcp-db-server
-          image: souhardyak/mcp-db-server:latest
+          image: <your-registry>/mcp-database-server:latest
           ports:
             - containerPort: 8000
           env:
@@ -488,9 +466,9 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 
 ## Support
 
-- [Report Issues](https://github.com/Souhar-dya/mcp-db-server/issues)
-- [Discussions](https://github.com/Souhar-dya/mcp-db-server/discussions)
-- [Documentation](https://github.com/Souhar-dya/mcp-db-server/wiki)
+- [Report Issues](https://github.com/shutterfly2011/database-mcp-server/issues)
+- [Discussions](https://github.com/shutterfly2011/database-mcp-server/discussions)
+- Upstream project (pre-fork history/issues): [Souhar-dya/mcp-db-server](https://github.com/Souhar-dya/mcp-db-server)
 
 ---
 

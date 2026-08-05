@@ -67,15 +67,14 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 # Default command runs the MCP stdio server
 CMD ["python", "mcp_server.py"]
 
-# Labels for the MCP registry
+# Labels
 LABEL org.opencontainers.image.title="MCP Database Server"
 LABEL org.opencontainers.image.description="Model Context Protocol server for database interactions with natural language queries"
 LABEL org.opencontainers.image.version="1.3.1"
 LABEL org.opencontainers.image.authors="Souhardya Kundu <kundusouhardya@gmail.com>"
-LABEL org.opencontainers.image.url="https://github.com/Souhar-dya/mcp-db-server"
-LABEL org.opencontainers.image.source="https://github.com/Souhar-dya/mcp-db-server"
-LABEL org.opencontainers.image.licenses="MIT"
-LABEL io.modelcontextprotocol.server.name="io.github.Souhar-dya/mcp-db-server"
+LABEL org.opencontainers.image.url="https://github.com/shutterfly2011/database-mcp-server"
+LABEL org.opencontainers.image.source="https://github.com/shutterfly2011/database-mcp-server"
+LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL mcp.server.name="database-server"
 LABEL mcp.server.type="database"
 LABEL mcp.server.capabilities="query,natural-language,multi-database"
